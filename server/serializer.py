@@ -1,4 +1,3 @@
-from datetime import DateTime
 
 def serialize_user(user):
     return{
@@ -8,7 +7,8 @@ def serialize_user(user):
         'email':user.email,
         'image':user.image,
         'reviews':[serialize_review(review)for review in user.reviews],
-        'attended':[serialize_attended(attendance)for attendance in user.attended],
+        'events_attended':[serialize_attended(attendance)for attendance in user.events_attended],
+        'events_followed':[serialize_following(follow)for follow in user.events_followed],
         'created_events':[serialize_event(event)for event in user.created_events],
         'created_at': user.created_at.isoformat(),
         'updated_at': user.updated_at.isoformat()
@@ -20,12 +20,13 @@ def serialize_event(event):
         'title':event.title,
         'image':event.image,
         'description':event.description,
-        'date':event.date,
-        'time':event.time,
+        'date':event.date.strftime('%Y-%m-%d'),
+        'time':event.time.strftime('%H:%M:%S'),
         'location':event.location,
-        'creator':event.creator_id,
-        'followed':[serialize_following(follow)for follow in event.followed],
-        'attendees':[serialize_attended(attendance)for attendance in event.attended],
+        'user_id':event.user_id,
+        'event_reviews':[serialize_review(review)for review in event.event_reviews],
+        'users_following':[serialize_following(follow)for follow in event.users_following],
+        'users_attended':[serialize_attended(attendance)for attendance in event.users_attended],
         'created_at': event.created_at.isoformat(),
         'updated_at': event.updated_at.isoformat()
     }
