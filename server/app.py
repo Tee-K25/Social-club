@@ -30,7 +30,7 @@ bcrypt.init_app(app)
 
 @app.before_request
 def check_if_logged_in():
-    allowed_endpoints = ['event_list', 'login', 'signup', 'home']
+    allowed_endpoints = ['event_list', 'login', 'signup', 'home','followings']
 
     if 'user_id' not in session and request.endpoint not in allowed_endpoints:
         return {'error': 'Unauthorized'}, 401
@@ -379,6 +379,27 @@ class Followings(Resource):
             }
             response = make_response(jsonify(response_dict), 400)
             return response
+        
+
+    def delete(self):
+        data = request.get_json()
+        if data:
+            user_id = data.get('user_id')
+            event_id = data.get('event_id')
+
+            if user_id is not None and event_id is not None:
+                following_to_delete = Following.query.filter_by(user_id=user_id, event_id=event_id).first()
+
+                if following_to_delete:
+                    db.session.delete(following_to_delete)
+                    db.session.commit()
+                    
+                    response_dict = {'message': 'Following deleted successfully'}
+                    return make_response(jsonify(response_dict), 200)
+                else:
+                    response = {'error':'Following not found'}
+                    return response
+
 
 api.add_resource(Followings, '/followings')
 
