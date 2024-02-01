@@ -1,4 +1,4 @@
-from flask import Flask,session
+from flask import Flask,session,redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_restful import Api, Resource
@@ -19,6 +19,8 @@ api = Api(app)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'b$A9pL!q2o#Z8s*'
+
 app.json.compact = False
 
 CORS(app)
@@ -28,9 +30,11 @@ bcrypt.init_app(app)
 
 @app.before_request
 def check_if_logged_in():
-    if not session['user_id'] and request.endpoint != 'event_list' :
-        return {'error':'Unauthorized'}, 401
- 
+    allowed_endpoints = ['event_list', 'login', 'signup', 'home']
+
+    if 'user_id' not in session and request.endpoint not in allowed_endpoints:
+        return {'error': 'Unauthorized'}, 401
+
 
 class Home(Resource):
     def get(self):
@@ -41,27 +45,27 @@ class Home(Resource):
 
         return response
 
-api.add_resource(Home,'/login')
+api.add_resource(Home,'/')
    
 
 class Login(Resource):
     def post(self):
         email = request.get_json()['email']
 
-        user = User.query.filter(User.email == email)
+        user = User.query.filter(User.email == email).first()
 
         password = request.get_json()['password']
 
-        if user.authenticate(password):
+        if user and user.authenticate(password):
             session['user_id'] = user.id
             return user.to_dict(), 200
         else:
             return {'error':'Invalid username or password'}
         
-api.add_resource(Login,'/')
+api.add_resource(Login,'/login')
 
 class Logout(Resource):
-    def delete():
+    def delete(self):
         session['user_id'] = None
         return jsonify({'message':'204: No content'})
 
@@ -96,10 +100,12 @@ class Users(Resource):
         if data:
             new_user = User(
                 username=data['username'],
-                password=data['password'],
+                _password_hash=data['password'],
                 email=data['email'],
                 image=data['image'],
             )
+            new_user.set_password(data['password'])
+            
             db.session.add(new_user)
             db.session.commit()
 
