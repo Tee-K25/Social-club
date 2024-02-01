@@ -111,7 +111,7 @@ with app.app_context():
     for _ in range(10):
         user = User(
             username=fake.user_name(),
-            password=fake.password(),
+            _password_hash=fake.password(),
             email=fake.email(),
             image=fake.image_url(),
         )

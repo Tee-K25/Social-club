@@ -1,9 +1,9 @@
-from flask import Flask
+from flask import Flask,session
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-from models import User, Event, Review, Attended, Following,db
+from models import User, Event, Review, Attended, Following,db,bcrypt
 ##
 from flask import request,jsonify,make_response
 from flask_restful import Resource, reqparse
@@ -12,9 +12,10 @@ from serializer import serialize_user, serialize_event, serialize_review, serial
 
 
 
-
 app = Flask(__name__)
 api = Api(app)
+
+
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -23,7 +24,13 @@ app.json.compact = False
 CORS(app)
 migrate = Migrate(app, db)
 db.init_app(app)
+bcrypt.init_app(app)
 
+@app.before_request
+def check_if_logged_in():
+    if not session['user_id'] and request.endpoint != 'event_list' :
+        return {'error':'Unauthorized'}, 401
+ 
 
 class Home(Resource):
     def get(self):
@@ -33,8 +40,42 @@ class Home(Resource):
         response = make_response(jsonify(response_dict),200)
 
         return response
-    
-api.add_resource(Home,'/')
+
+api.add_resource(Home,'/login')
+   
+
+class Login(Resource):
+    def post(self):
+        email = request.get_json()['email']
+
+        user = User.query.filter(User.email == email)
+
+        password = request.get_json()['password']
+
+        if user.authenticate(password):
+            session['user_id'] = user.id
+            return user.to_dict(), 200
+        else:
+            return {'error':'Invalid username or password'}
+        
+api.add_resource(Login,'/')
+
+class Logout(Resource):
+    def delete():
+        session['user_id'] = None
+        return jsonify({'message':'204: No content'})
+
+api.add_resource(Logout,'/logout')
+
+class CheckSession(Resource):
+    def get(self):
+        user = User.query.filter(User.id == session.get('user_id')).first()
+        if user:
+            return jsonify(user.to_dict())
+        else:
+            return jsonify({'message':'401: Not authorized'}), 401
+        
+api.add_resource(CheckSession,'/check_session')
 
 class Users(Resource):
     def get(self):
@@ -161,7 +202,7 @@ class Events(Resource):
             response = make_response(jsonify(response_dict), 400)
             return response
 
-api.add_resource(Events, '/events')
+api.add_resource(Events, '/events',endpoint='events_list')
 
 class EventById(Resource):
     def get(self, id):
@@ -208,7 +249,7 @@ class EventById(Resource):
             response = make_response(jsonify(response_dict), 200)
             return response
 
-api.add_resource(EventById, '/event/<int:id>')
+api.add_resource(EventById, '/event/<int:id>', endpoint='event')
 
 # Reviews routes
 class Reviews(Resource):
@@ -466,6 +507,8 @@ class AttendedById(Resource):
             return response
 
 api.add_resource(AttendedById, '/attended/<int:id>')
+
+
 
 
 

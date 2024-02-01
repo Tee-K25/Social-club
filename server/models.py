@@ -1,8 +1,12 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy.orm import validates
+from sqlalchemy.ext.hybrid import hybrid_property
+from flask_bcrypt import Bcrypt 
 
 db = SQLAlchemy()
+bcrypt = Bcrypt()
+
 
 
 
@@ -11,7 +15,7 @@ class User(db.Model, SerializerMixin):
      
      id = db.Column(db.Integer, primary_key=True)
      username = db.Column(db.String(255), nullable=False, unique=True)
-     password = db.Column(db.String(255), nullable=False)
+     _password_hash = db.Column(db.String(255), nullable=False)
      email = db.Column(db.String(255), nullable=False, unique=True)
      image = db.Column(db.String(255))
      reviews = db.relationship('Review',backref='review',lazy=True)
@@ -21,17 +25,36 @@ class User(db.Model, SerializerMixin):
      created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
      updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
+     
+
      @validates('email')
      def validate_email(self, key, address):
-         if "@" not in address:
-             raise ValueError("Failed simple email validation")
-         return address
+        if "@" not in address:
+            raise ValueError("Failed simple email validation")
+        return address
      
      @validates('password')
      def validate_password(self, key, password):
         if not any(char.isdigit() for char in password) or not any(char.isalpha() for char in password):
             raise ValueError("Password must contain a mixture of letters and numbers.")
         return password
+     
+     @hybrid_property
+     def password_hash(self):
+         return self._password_hash
+     
+     @password_hash.setter
+     def password_hash(self, password):
+         password_hash = bcrypt.generate_password_hash(
+             password.encode('utf-8')
+         )
+         self._password_hash = password_hash.decode('utf-8')
+
+     def authenticate(self, password):
+        return bcrypt.check_password_hash(
+            self._password_hash,password.encode('utf-8')
+        )   
+
      
 class Following(db.Model, SerializerMixin):
     id = db.Column(db.Integer,primary_key=True)
