@@ -31,6 +31,7 @@ def serialize_event(event):
         'updated_at': event.updated_at.isoformat()
     }
 
+
 def serialize_review(review):
     return{
         'id':review.id,

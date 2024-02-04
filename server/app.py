@@ -7,7 +7,7 @@ from models import User, Event, Review, Attended, Following,db,bcrypt
 ##
 from flask import request,jsonify,make_response
 from flask_restful import Resource, reqparse
-from serializer import serialize_user, serialize_event, serialize_review, serialize_attended, serialize_following
+from serializer import  serialize_user, serialize_event, serialize_review, serialize_attended, serialize_following
 ##
 
 
@@ -28,12 +28,12 @@ migrate = Migrate(app, db)
 db.init_app(app)
 bcrypt.init_app(app)
 
-@app.before_request
-def check_if_logged_in():
-    allowed_endpoints = ['event_list', 'login', 'signup', 'home','followings']
+# @app.before_request
+# def check_if_logged_in():
+#     allowed_endpoints = ['event_list', 'login', 'signup', 'home','followings']
 
-    if 'user_id' not in session and request.endpoint not in allowed_endpoints:
-        return {'error': 'Unauthorized'}, 401
+#     if 'user_id' not in session and request.endpoint not in allowed_endpoints:
+#         return {'error': 'Unauthorized'}, 401
 
 
 class Home(Resource):
@@ -167,6 +167,41 @@ class UserById(Resource):
             return response
         
 api.add_resource(UserById,'/user/<int:id>')
+
+class UserReviews(Resource):
+    def get(self, user_id):
+        reviews = Review.query.filter_by(user_id=user_id).all()
+
+        if reviews:
+            response_dict = [serialize_review(review) for review in reviews]
+            response = make_response(jsonify(response_dict), 200)
+            return response
+        else:
+            response_dict = {
+                'error': 'No reviews found for the specified user'
+            }
+            response = make_response(jsonify(response_dict), 404)
+            return response
+
+api.add_resource(UserReviews, '/user/<int:user_id>/reviews')
+
+class UserEventsFollowed(Resource):
+    def get(self, user_id):
+        user = User.query.get(user_id)
+
+        if user:
+            events_followed = [[serialize_following(follow) for follow in user.events_followed]]
+            response = make_response(jsonify(events_followed), 200)
+            return response
+        else:
+            response_dict = {
+                'error': 'User not found'
+            }
+            response = make_response(jsonify(response_dict), 404)
+            return response
+
+api.add_resource(UserEventsFollowed, '/user/<int:user_id>/events/followed')
+
 
 class Events(Resource):
     def get(self):
@@ -344,6 +379,64 @@ class ReviewById(Resource):
 
 api.add_resource(ReviewById, '/review/<int:id>')
 
+class ReviewsForEvent(Resource):
+    def get(self, event_id):
+        reviews = Review.query.filter_by(event_id=event_id).all()
+
+        if reviews:
+            response_dict = [serialize_review(review) for review in reviews]
+            response = make_response(jsonify(response_dict), 200)
+            return response
+        else:
+            response_dict = {
+                'error': 'No reviews found for the specified event'
+            }
+            response = make_response(jsonify(response_dict), 404)
+            return response
+        
+    def post(self, event_id):
+        data = request.get_json()
+        if data:
+            new_review = Review(
+                user_id=data['user_id'],
+                event_id=event_id,
+                rating=data['rating'],
+                comment=data['comment'],
+            )
+
+            db.session.add(new_review)
+            db.session.commit()
+
+            response_dict = serialize_review(new_review)
+            response = make_response(jsonify(response_dict), 200)
+            return response
+        else:
+            response_dict = {
+                'error': ['validation errors']
+            }
+            response = make_response(jsonify(response_dict), 400)
+            return response
+
+    def delete(self, event_id):
+        data = request.get_json()
+        if data:
+            user_id = data.get('user_id')
+
+            if user_id is not None:
+                review_to_delete = Review.query.filter_by(user_id=user_id, event_id=event_id).first()
+
+                if review_to_delete:
+                    db.session.delete(review_to_delete)
+                    db.session.commit()
+
+                    response_dict = {'message': 'Review deleted successfully'}
+                    return make_response(jsonify(response_dict), 200)
+                else:
+                    response = {'error': 'Review not found'}
+                    return response
+
+api.add_resource(ReviewsForEvent, '/event/<int:event_id>/reviews')
+
 # Following routes
 class Followings(Resource):
     def get(self):
@@ -358,6 +451,8 @@ class Followings(Resource):
             }
             response = make_response(jsonify(response_dict), 404)
             return response
+        
+        
 
     def post(self):
         data = request.get_json()
@@ -449,6 +544,62 @@ class FollowingById(Resource):
             return response
 
 api.add_resource(FollowingById, '/following/<int:id>')
+
+class FollowingsForEvent(Resource):
+    def get(self, event_id):
+        followings = Following.query.filter_by(event_id=event_id).all()
+
+        if followings:
+            response_dict = [serialize_following(following) for following in followings]
+            response = make_response(jsonify(response_dict), 200)
+            return response
+        else:
+            response_dict = {
+                'error': 'No followings found for the specified event'
+            }
+            response = make_response(jsonify(response_dict), 404)
+            return response
+        
+    def post(self, event_id):
+        data = request.get_json()
+        if data:
+            new_following = Following(
+                user_id=data['user_id'],
+                event_id=event_id,
+            )
+
+            db.session.add(new_following)
+            db.session.commit()
+
+            response_dict = serialize_following(new_following)
+            response = make_response(jsonify(response_dict), 200)
+            return response
+        else:
+            response_dict = {
+                'error': ['validation errors']
+            }
+            response = make_response(jsonify(response_dict), 400)
+            return response
+
+    def delete(self, event_id):
+        data = request.get_json()
+        if data:
+            user_id = data.get('user_id')
+
+            if user_id is not None:
+                following_to_delete = Following.query.filter_by(user_id=user_id, event_id=event_id).first()
+
+                if following_to_delete:
+                    db.session.delete(following_to_delete)
+                    db.session.commit()
+
+                    response_dict = {'message': 'Following deleted successfully'}
+                    return make_response(jsonify(response_dict), 200)
+                else:
+                    response = {'error': 'Following not found'}
+                    return response
+
+api.add_resource(FollowingsForEvent, '/event/<int:event_id>/followings')
 
 # Attended routes
 class Attendeds(Resource):
