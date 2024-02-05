@@ -13,6 +13,15 @@ werkzeug = "*"
 faker = "*"
 gunicorn = "*"
 honcho = "*"
+importlib-metadata = "*"
+psycopg2-binary = "*"
+python-dotenv = "*"
+sqlalchemy-serializer = "*"
+
+
+
+
+
 
 [dev-packages]
 

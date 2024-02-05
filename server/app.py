@@ -9,8 +9,10 @@ from flask import request,jsonify,make_response
 from flask_restful import Resource, reqparse
 from serializer import  serialize_user, serialize_event, serialize_review, serialize_attended, serialize_following
 ##
+from dotenv import load_dotenv
 
 
+load_dotenv()
 
 app = Flask(__name__)
 api = Api(app)
